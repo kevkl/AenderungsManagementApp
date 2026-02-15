@@ -8,7 +8,7 @@ import NachtragsPruefung from "@/components/NachtragsPruefung";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<"import" | "edit" | "chat" | "nachtrag">("import");
-  const [excelData, setExcelData] = useState<any[]>([]);
+  const [excelData, setExcelData] = useState<Record<string, unknown>[]>([]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">

@@ -4,7 +4,7 @@ import { useState } from "react";
 import * as XLSX from "xlsx";
 
 interface ImportTabProps {
-  onDataImported: (data: any[]) => void;
+  onDataImported: (data: Record<string, unknown>[]) => void;
 }
 
 export default function ImportTab({ onDataImported }: ImportTabProps) {
@@ -23,7 +23,7 @@ export default function ImportTab({ onDataImported }: ImportTabProps) {
     setIsLoading(true);
     try {
       const fileExtension = file.name.split('.').pop()?.toLowerCase();
-      let jsonData: any[] = [];
+      let jsonData: Record<string, unknown>[] = [];
 
       if (fileExtension === 'csv') {
         // Parse CSV file

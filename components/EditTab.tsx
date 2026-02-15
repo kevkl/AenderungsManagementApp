@@ -1,11 +1,11 @@
 "use client";
 
-interface EditTabProps {
-  data: any[];
-  onDataChange: (data: any[]) => void;
+interface EditTabProps<T extends Record<string, unknown>> {
+  data: T[];
+  onDataChange: (data: T[]) => void;
 }
 
-export default function EditTab({ data, onDataChange }: EditTabProps) {
+export default function EditTab<T extends Record<string, unknown>>({ data, onDataChange }: EditTabProps<T>) {
   if (!data || data.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
@@ -51,7 +51,7 @@ export default function EditTab({ data, onDataChange }: EditTabProps) {
           <tbody className="bg-white dark:bg-zinc-900 divide-y divide-zinc-200 dark:divide-zinc-700">
             {data.map((row, idx) => (
               <tr key={idx}>
-                {Object.values(row).map((value: any, cellIdx) => (
+                {Object.values(row).map((value, cellIdx) => (
                   <td
                     key={cellIdx}
                     className="px-6 py-4 whitespace-nowrap text-sm text-zinc-900 dark:text-zinc-100"

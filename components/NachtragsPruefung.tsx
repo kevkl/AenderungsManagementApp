@@ -13,17 +13,19 @@ interface PruefErgebnis {
 }
 
 export default function NachtragsPruefung() {
-  const [originalData, setOriginalData] = useState<any[]>([]);
-  const [nachtragData, setNachtragData] = useState<any[]>([]);
+  const [originalData, setOriginalData] = useState<(string | number | null | undefined)[][]>([]);
+  const [nachtragData, setNachtragData] = useState<(string | number | null | undefined)[][]>([]);
   const [ergebnisse, setErgebnisse] = useState<PruefErgebnis[]>([]);
   const [headerRow, setHeaderRow] = useState<string[]>([]);
   const [filter, setFilter] = useState<"alle" | "info" | "warnung" | "kritisch">("alle");
+  const [vobBeschreibung, setVobBeschreibung] = useState<string>("");
+  const [isGeneratingVOB, setIsGeneratingVOB] = useState(false);
 
-  const isEmptyRow = (row: any[]): boolean => {
+  const isEmptyRow = (row: (string | number | null | undefined)[]): boolean => {
     return row.every(cell => !cell || String(cell).trim() === "");
   };
 
-  const cleanData = (data: any[]): any[] => {
+  const cleanData = (data: (string | number | null | undefined)[][]): (string | number | null | undefined)[][] => {
     return data.filter(row => !isEmptyRow(row));
   };
 
@@ -47,7 +49,7 @@ export default function NachtragsPruefung() {
       defval: "",
       raw: true,
       blankrows: false
-    });
+    }) as (string | number | null | undefined)[][];
 
     const cleanedData = cleanData(rawData);
 
@@ -59,7 +61,7 @@ export default function NachtragsPruefung() {
 
     const dataOnlyRows = cleanedData.filter((row, idx) => {
       if (idx === 0) return true; // Header behalten
-      const filledCells = row.filter((cell: any) => {
+      const filledCells = row.filter((cell: string | number | null | undefined) => {
         const cellStr = String(cell || "").trim();
         return cellStr !== "" && cellStr !== "-";
       }).length;
@@ -67,7 +69,7 @@ export default function NachtragsPruefung() {
     });
 
     const normalizedData = dataOnlyRows.map(row => {
-      return row.map((cell: any) => {
+      return row.map((cell: string | number | null | undefined) => {
         const cellStr = String(cell || "").trim();
         if (cellStr === "" || cellStr === "-") return "";
         
@@ -115,18 +117,18 @@ export default function NachtragsPruefung() {
     console.log("Header:", header);
 
     // Map: Position → Row
-    const nachtragMap = new Map<string, any[]>();
+    const nachtragMap = new Map<string, (string | number)[]>();
     nachtragData.forEach((row, idx) => {
       if (idx === 0) return;
       const key = String(row[0] || "").trim();
-      if (key) nachtragMap.set(key, row);
+      if (key) nachtragMap.set(key, row.filter(cell => cell !== null && cell !== undefined) as (string | number)[]);
     });
 
-    const originalMap = new Map<string, any[]>();
+    const originalMap = new Map<string, (string | number)[]>();
     originalData.forEach((row, idx) => {
       if (idx === 0) return;
       const key = String(row[0] || "").trim();
-      if (key) originalMap.set(key, row);
+      if (key) originalMap.set(key, row.filter(cell => cell !== null && cell !== undefined) as (string | number)[]);
     });
 
     // Neue Positionen
@@ -187,7 +189,7 @@ export default function NachtragsPruefung() {
 
           gefundeneUnterschiede.push({
             position: pos,
-            feldname: feldname,
+            feldname: String(feldname),
             originalWert: origWert,
             nachtragWert: nachtWert,
             aenderung: prozentAenderung,
@@ -217,6 +219,108 @@ export default function NachtragsPruefung() {
     XLSX.writeFile(wb, `Vergleich_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
+  const generiereVOBBeschreibung = async () => {
+    if (ergebnisse.length === 0) {
+      alert("Bitte zuerst Dateien vergleichen!");
+      return;
+    }
+
+    setIsGeneratingVOB(true);
+    setVobBeschreibung("");
+
+    try {
+      const prompt = `Du bist ein Bauingenieur und erstellst eine VOB-konforme Nachtragsbeschreibung.
+
+KATEGORISIERUNG NACH VOB:
+1. MENGENMEHRUNG: Menge erhöht, gleiche Leistung (§ 2 Abs. 3 Nr. 1 VOB/B)
+2. MENGENUNTERSCHREITUNG: Menge verringert um >10% (§ 2 Abs. 3 Nr. 2 VOB/B)
+3. GEÄNDERTE LEISTUNG: Änderung der Ausführungsart/Qualität (§ 1 Abs. 3, 4 VOB/B)
+4. ZUSÄTZLICHE LEISTUNG: Komplett neue Position (§ 1 Abs. 3 VOB/B)
+
+GEFUNDENE UNTERSCHIEDE:
+${JSON.stringify(ergebnisse, null, 2)}
+
+AUFGABE:
+Erstelle eine strukturierte Nachtragsbeschreibung mit folgenden Abschnitten:
+
+1. MENGENMEHRUNGEN (wenn Mengensteigerung vorhanden)
+   - Position, Beschreibung, Alt → Neu, Prozent, Begründung
+
+2. MENGENUNTERSCHREITUNGEN (wenn Mengenreduktion >10%)
+   - Position, Beschreibung, Alt → Neu, Prozent, VOB-Verweis
+
+3. GEÄNDERTE LEISTUNGEN (wenn Preise/Qualität geändert)
+   - Position, Art der Änderung, Begründung
+
+4. ZUSÄTZLICHE LEISTUNGEN (neue Positionen)
+   - Position, Beschreibung, Begründung
+
+5. KOSTENÜBERSICHT
+   - Summe Mehrkosten/Minderkosten
+   - Nachtragssumme
+
+Format: Markdown mit klaren Überschriften. Sei präzise und VOB-konform.`;
+
+      const response = await fetch("http://localhost:11434/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "gemma3:4b",
+          prompt: prompt,
+          stream: true,
+          options: {
+            temperature: 0.3,
+            top_p: 0.9,
+            num_predict: 4000,
+          },
+        }),
+      });
+
+      if (!response.ok) throw new Error("Gemma nicht erreichbar");
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      if (!reader) throw new Error("Kein Reader");
+
+      let fullText = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split("\n").filter(line => line.trim());
+
+        for (const line of lines) {
+          try {
+            const json = JSON.parse(line);
+            if (json.response) {
+              fullText += json.response;
+              setVobBeschreibung(fullText);
+            }
+          } catch (e) {
+            // Skip invalid JSON
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Fehler:", error);
+      alert("Fehler bei VOB-Generierung. Ist Ollama aktiv?");
+    } finally {
+      setIsGeneratingVOB(false);
+    }
+  };
+
+  const exportVOB = () => {
+    const blob = new Blob([vobBeschreibung], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Nachtragsbeschreibung_${new Date().toISOString().split('T')[0]}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const getFilteredErgebnisse = () => {
     if (filter === "alle") return ergebnisse;
     return ergebnisse.filter(e => e.schweregrad === filter);
@@ -236,7 +340,7 @@ export default function NachtragsPruefung() {
     }
   };
 
-  const formatWert = (wert: any) => {
+  const formatWert = (wert: number | string | null | undefined) => {
     if (typeof wert === 'number') {
       return wert.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
@@ -259,7 +363,7 @@ export default function NachtragsPruefung() {
             <input
               type="file"
               accept=".xlsx,.xls"
-              onChange={(e) => handleFileUpload(e, type as any)}
+              onChange={(e) => handleFileUpload(e, type as "original" | "nachtrag")}
               className="hidden"
               id={`file-${type}`}
             />
@@ -358,7 +462,7 @@ export default function NachtragsPruefung() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
                 <p className="text-zinc-500 dark:text-zinc-400 font-medium">
-                  Keine Ergebnisse für Filter "{filter}"
+                  Keine Ergebnisse für Filter &quot;{filter}&quot;
                 </p>
               </div>
             ) : (
@@ -410,6 +514,58 @@ export default function NachtragsPruefung() {
                 </div>
               ))
             )}
+          </div>
+
+          {/* VOB BESCHREIBUNG SECTION */}
+          <div className="border-t-2 border-zinc-200 dark:border-zinc-700 pt-6">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h3 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+                  VOB-Nachtragsbeschreibung
+                </h3>
+                <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
+                  Automatisch generierte Beschreibung nach VOB/B
+                </p>
+              </div>
+              <div className="flex gap-2">
+                {vobBeschreibung && (
+                  <button
+                    onClick={exportVOB}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Markdown Export
+                  </button>
+                )}
+                <button
+                  onClick={generiereVOBBeschreibung}
+                  disabled={isGeneratingVOB}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-zinc-300 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                >
+                  {isGeneratingVOB ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Generiere...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Generiere VOB
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+            <div className="bg-zinc-50 dark:bg-zinc-900 p-6 rounded-xl text-sm text-zinc-900 dark:text-zinc-100 font-mono whitespace-pre-wrap">
+              {vobBeschreibung || "Noch keine Beschreibung generiert."}
+            </div>
           </div>
         </div>
       )}

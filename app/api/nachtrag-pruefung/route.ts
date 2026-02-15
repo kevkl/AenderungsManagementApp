@@ -61,8 +61,18 @@ export async function POST(request: NextRequest) {
   }
 }
 
-function compareByPosition(original: any[], nachtrag: any[]): any[] {
-  const results: any[] = [];
+interface LVRow {
+  [key: string]: string | number | null;
+}
+
+function compareByPosition(original: LVRow[], nachtrag: LVRow[]): LVRow[] {
+  const results: Array<{
+    position: string;
+    kategorie: string;
+    befund: string;
+    schweregrad: string;
+    details: string;
+  }> = [];
   
   if (!original.length || !nachtrag.length) {
     results.push({
@@ -83,7 +93,7 @@ function compareByPosition(original: any[], nachtrag: any[]): any[] {
   console.log("Alle Spalten:", columns);
   
   // Erstelle Maps: ID → Zeile
-  const originalMap = new Map<string, any>();
+  const originalMap = new Map<string, LVRow>();
   original.forEach((row, idx) => {
     const id = String(row[idCol] || "").trim();
     if (id && id !== "" && idx > 1) { // Skip erste 2 Zeilen (Überschriften)
@@ -91,7 +101,7 @@ function compareByPosition(original: any[], nachtrag: any[]): any[] {
     }
   });
   
-  const nachtragMap = new Map<string, any>();
+  const nachtragMap = new Map<string, LVRow>();
   nachtrag.forEach((row, idx) => {
     const id = String(row[idCol] || "").trim();
     if (id && id !== "" && idx > 1) {

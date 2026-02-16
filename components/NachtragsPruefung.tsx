@@ -299,7 +299,7 @@ Format: Markdown mit klaren Überschriften. Sei präzise und VOB-konform.`;
               setVobBeschreibung(fullText);
             }
           } catch (e) {
-            // Skip invalid JSON
+            console.error("Error parsing JSON line:", e);
           }
         }
       }

@@ -10,8 +10,11 @@
   },
   "dependencies": {
     "next": "16.1.6",
+    "nodejs-whisper": "^0.2.9",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "react-hook-speech-to-text": "^0.8.0",
+    "react-markdown": "^10.1.0",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

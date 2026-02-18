@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import * as XLSX from "xlsx";
+import ReactMarkdown from "react-markdown";
 
 interface PruefErgebnis {
   position: string;
@@ -265,7 +266,7 @@ Format: Markdown mit klaren Überschriften. Sei präzise und VOB-konform.`;
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "gemma3:4b",
+          model: "gemma3:1b",
           prompt: prompt,
           stream: true,
           options: {
@@ -564,7 +565,11 @@ Format: Markdown mit klaren Überschriften. Sei präzise und VOB-konform.`;
               </div>
             </div>
             <div className="bg-zinc-50 dark:bg-zinc-900 p-6 rounded-xl text-sm text-zinc-900 dark:text-zinc-100 font-mono whitespace-pre-wrap">
-              {vobBeschreibung || "Noch keine Beschreibung generiert."}
+              {vobBeschreibung ? (
+                <ReactMarkdown>{vobBeschreibung}</ReactMarkdown>
+              ) : (
+                "Noch keine Beschreibung generiert."
+              )}
             </div>
           </div>
         </div>

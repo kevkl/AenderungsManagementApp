@@ -34,3 +34,25 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+
+
+## Install python server
+
+# 1. Create virtual environment
+python3 -m venv venv
+
+# 2. Activate it
+source venv/bin/activate
+
+# 3. Upgrade pip
+pip install --upgrade pip
+
+# 4. Install dependencies
+pip install openai-whisper flask flask-cors soundfile
+
+# 5. Verify installation
+pip list | grep -E "flask|whisper"
+
+# 6. Start server
+python3 whisper_server.py
